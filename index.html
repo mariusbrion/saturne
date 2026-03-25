@@ -317,7 +317,7 @@
                                     return { color: "#f59e0b", weight: 5, opacity: 0.8 }; // Orange
                                 case 'Polygon':
                                 case 'MultiPolygon':
-                                    return { color: "#3b82f6", weight: 2, fillOpacity: 0.4 }; // Bleu
+                                    return { color: "#f59e0b", weight: 2, fillOpacity: 0.4 }; // Orange au lieu de Bleu
                                 default: return { color: "#e11d48" };
                             }
                         }
@@ -416,7 +416,7 @@
                 subLegend.innerHTML = `
                     <span><i class="inline-block w-2 h-2 rounded-full bg-[#e11d48] mr-1"></i> Événements ponctuels</span>
                     <span><i class="inline-block w-2 h-0.5 bg-[#f59e0b] mr-1"></i> Passages piétons</span>
-                    <span><i class="inline-block w-2 h-2 bg-[#3b82f6] opacity-40 mr-1"></i> Revêtement trottoirs</span>
+                    <span><i class="inline-block w-2 h-2 bg-[#f59e0b] opacity-40 mr-1"></i> Revêtement trottoirs</span>
                 `;
                 container.appendChild(subLegend);
             }
