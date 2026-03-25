@@ -3,198 +3,448 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cartographie Interactive des Cheminements</title>
+    <title>Diagnostic et Amélioration des Cheminements</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Proj4js pour la gestion des projections si nécessaire -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    
+
     <style>
-        #map {
-            height: calc(100vh - 80px);
-            width: 100%;
+        :root {
+            --primary-color: #1e3a8a;
+            --accent-color: #3b82f6;
+            --bg-light: #f8f9fa;
         }
-        .popup-image {
-            max-width: 100%;
-            height: auto;
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100%;
+            z-index: 1;
+        }
+
+        /* Panneau de contrôle personnalisé */
+        #custom-legend {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            width: 320px;
+            max-height: 90vh;
+            overflow-y: auto;
             border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            padding: 15px;
+        }
+
+        .legend-header {
+            border-bottom: 2px solid var(--bg-light);
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+        }
+
+        .legend-header h2 {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .category-block {
+            margin-bottom: 12px;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .category-header {
+            background: #fdfdfd;
+            padding: 8px 10px;
+            display: flex;
+            align-items: center;
+            user-select: none;
+            border-bottom: 1px solid #eee;
+        }
+
+        .category-title-container {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+
+        .category-title {
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.7rem;
+            color: #7f8c8d;
+        }
+
+        .category-content {
+            padding: 8px;
+            display: block;
+        }
+
+        .category-content.collapsed {
+            display: none;
+        }
+
+        .layer-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 4px;
+            transition: background 0.2s;
+            font-size: 0.85rem;
+        }
+
+        .layer-item:hover {
+            background: var(--bg-light);
+        }
+
+        .symbol {
+            width: 14px;
+            height: 14px;
+            margin-right: 10px;
+            border-radius: 3px;
+            display: inline-block;
+            border: 1px solid rgba(0,0,0,0.2);
+            flex-shrink: 0;
+        }
+
+        /* Bouton de changement de fond */
+        .basemap-toggle {
+            position: absolute;
+            bottom: 25px;
+            left: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 10px 18px;
+            border-radius: 50px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            border: 2px solid #fff;
+            cursor: pointer;
+            font-weight: bold;
+            color: var(--primary-color);
+            transition: all 0.2s;
+        }
+
+        /* Menu contextuel */
+        #context-menu {
+            position: absolute;
+            z-index: 2000;
+            background: white;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: none;
+            padding: 5px 0;
+            min-width: 180px;
+        }
+
+        .context-menu-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Photos des popups */
+        .popup-photo {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            border-radius: 6px;
             margin-top: 10px;
+            display: block;
             border: 1px solid #ddd;
         }
-        .legend {
-            background: white;
-            padding: 10px;
-            line-height: 18px;
-            color: #555;
-            border-radius: 5px;
-            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+
+        .leaflet-popup-content {
+            width: 420px !important;
+            margin: 15px !important;
         }
-        .legend i {
-            width: 18px;
-            height: 18px;
-            float: left;
-            margin-right: 8px;
-            opacity: 0.7;
+
+        @media (max-width: 600px) {
+            #custom-legend { width: 260px; }
+            .leaflet-popup-content { width: 280px !important; }
         }
     </style>
 </head>
-<body class="bg-gray-100 font-sans">
+<body>
 
-    <!-- Header -->
-    <header class="bg-blue-800 text-white p-4 shadow-md flex justify-between items-center">
-        <h1 class="text-xl font-bold">Amélioration des Cheminements</h1>
-        <div id="status" class="text-sm bg-blue-700 px-3 py-1 rounded">Chargement des données...</div>
-    </header>
+    <!-- Panneau de légende personnalisé -->
+    <div id="custom-legend">
+        <div class="legend-header">
+            <h2>Diagnostic Cheminements</h2>
+        </div>
+        <div id="legend-container">
+            <!-- Injecté par JS -->
+        </div>
+    </div>
 
-    <!-- Map Container -->
+    <!-- Toggle Satellite -->
+    <button class="basemap-toggle" onclick="toggleBasemap()">
+        <span id="toggle-text">Passer en Satellite</span>
+    </button>
+
+    <!-- Menu Contextuel -->
+    <div id="context-menu">
+        <div class="context-menu-item" onclick="openGoogleMaps()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            Google Maps Street View
+        </div>
+    </div>
+
     <div id="map"></div>
-
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
         // Initialisation de la carte
-        const map = L.map('map').setView([46.603354, 1.888334], 6); // Centré sur la France par défaut
+        const map = L.map('map').setView([46.603354, 1.888334], 6);
 
-        // Couche de base (OpenStreetMap)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
+        // --- GESTION DES PANNEAUX (Z-INDEX) ---
+        map.createPane('bgPane'); map.getPane('bgPane').style.zIndex = 400;
+        map.createPane('mainPane'); map.getPane('mainPane').style.zIndex = 500;
+
+        // Fonds de carte
+        const voyagerLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OSM &copy; CARTO'
         }).addTo(map);
 
-        // --- CONFIGURATION DES STYLES ---
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Esri World Imagery'
+        });
 
-        // Style pour les données existantes (donnes.geojson)
-        const styles = {
-            evenement: { // Points
-                radius: 8,
-                fillColor: "#e11d48", // Rose/Rouge
-                color: "#fff",
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.8
-            },
-            revetement: { // Polygones
-                fillColor: "#3b82f6", // Bleu
-                weight: 2,
-                opacity: 1,
-                color: 'white',
-                dashArray: '3',
-                fillOpacity: 0.4
-            },
-            passagePieton: { // Lignes
-                color: "#f59e0b", // Orange
-                weight: 5,
-                opacity: 0.8
-            },
-            idee: { // Nouvelle source (idee.geojson)
-                radius: 8,
-                fillColor: "#10b981", // Vert
-                color: "#fff",
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.9
+        let isSatellite = false;
+        function toggleBasemap() {
+            if (isSatellite) {
+                map.removeLayer(satelliteLayer);
+                voyagerLayer.addTo(map);
+                document.getElementById('toggle-text').innerText = "Passer en Satellite";
+            } else {
+                map.removeLayer(voyagerLayer);
+                satelliteLayer.addTo(map);
+                document.getElementById('toggle-text').innerText = "Passer en Plan";
             }
-        };
-
-        // --- FONCTIONS UTILITAIRES ---
-
-        // Fonction pour générer le contenu du popup
-        function createPopupContent(feature, title) {
-            let props = feature.properties;
-            let html = `<div class="p-2">
-                <h3 class="font-bold text-lg border-b mb-2">${props.nom || title}</h3>
-                <p class="text-sm text-gray-700">${props.description || 'Aucune description disponible.'}</p>`;
-
-            // Gestion de la photo avec ajout du .png si nécessaire
-            if (props.photo) {
-                let fileName = props.photo.toString();
-                if (!fileName.toLowerCase().endsWith('.png')) {
-                    fileName += '.png';
-                }
-                html += `<img src="${fileName}" alt="Photo" class="popup-image" onerror="this.onerror=null; this.src='https://placehold.co/300x200?text=Image+non+disponible';">`;
-            }
-
-            html += `</div>`;
-            return html;
+            isSatellite = !isSatellite;
         }
 
-        // --- CHARGEMENT DES DONNÉES ---
+        // --- LOGIQUE PHOTO & POPUPS ---
+        function getPhotoUrl(photoProp) {
+            if (!photoProp) return null;
+            let name = photoProp.toString();
+            // Ajout auto du .png si absent (ex: "1" -> "1.png")
+            if (!name.toLowerCase().endsWith('.png')) {
+                name += '.png';
+            }
+            return name;
+        }
 
-        async function loadGeoJSON() {
+        function onEachFeature(feature, layer) {
+            const props = feature.properties;
+            let content = `<div class="font-sans text-sm">`;
+            content += `<b class="text-blue-800 text-base">${props.nom || 'Observation'}</b><br>`;
+            
+            if (props.description || props.Notes) {
+                content += `<p class="mt-1">${props.description || props.Notes}</p>`;
+            }
+
+            const photoUrl = getPhotoUrl(props.photo || props.Photo);
+            if (photoUrl) {
+                content += `<img src="${photoUrl}" class="popup-photo" alt="Photo" onerror="this.style.display='none'">`;
+            }
+            content += `</div>`;
+            
+            layer.bindPopup(content, { maxWidth: 420 });
+        }
+
+        // --- CONFIGURATION DES SOURCES ---
+        const layers = {};
+        const categories = {
+            donnes: { title: "État des lieux", contentId: "cat-donnes" },
+            idees: { title: "Projets & Idées", contentId: "cat-idees" }
+        };
+
+        const configDonnes = {
+            id: 'donnes',
+            url: 'donnes.geojson',
+            category: 'donnes',
+            name: 'Données de terrain (Multi-type)',
+            pane: 'mainPane'
+        };
+
+        const configIdees = {
+            id: 'idees',
+            url: 'idee.geojson',
+            category: 'idees',
+            name: 'Idées d\'amélioration',
+            color: '#10b981', // Vert
+            pane: 'mainPane'
+        };
+
+        // --- CHARGEMENT DES COUCHES ---
+
+        async function loadLayer(config) {
             try {
-                // 1. Chargement de donnes.geojson
-                const responseDonnes = await fetch('donnes.geojson');
-                if (responseDonnes.ok) {
-                    const data = await responseDonnes.json();
-                    
-                    L.geoJSON(data, {
-                        style: function(feature) {
+                const response = await fetch(config.url);
+                if (!response.ok) return;
+                const data = await response.json();
+
+                const layer = L.geoJSON(data, {
+                    pane: config.pane,
+                    style: (feature) => {
+                        // Style dynamique pour donnes.geojson selon la géométrie
+                        if (config.id === 'donnes') {
                             switch (feature.geometry.type) {
-                                case 'LineString': 
-                                case 'MultiLineString': return styles.passagePieton;
+                                case 'LineString':
+                                case 'MultiLineString':
+                                    return { color: "#f59e0b", weight: 5, opacity: 0.8 }; // Orange
                                 case 'Polygon':
-                                case 'MultiPolygon': return styles.revetement;
-                                default: return {};
+                                case 'MultiPolygon':
+                                    return { color: "#3b82f6", weight: 2, fillOpacity: 0.4 }; // Bleu
+                                default: return { color: "#e11d48" };
                             }
-                        },
-                        pointToLayer: function(feature, latlng) {
-                            return L.circleMarker(latlng, styles.evenement);
-                        },
-                        onEachFeature: function(feature, layer) {
-                            let typeLabel = "Information";
-                            if (feature.geometry.type === 'Point') typeLabel = "Événement";
-                            if (feature.geometry.type.includes('Line')) typeLabel = "Passage Piéton";
-                            if (feature.geometry.type.includes('Polygon')) typeLabel = "Revêtement Trottoir";
-                            
-                            layer.bindPopup(createPopupContent(feature, typeLabel));
                         }
-                    }).addTo(map);
-                }
+                        // Style par défaut pour les autres (idées)
+                        return { color: config.color || '#333', weight: 3, fillOpacity: 0.5 };
+                    },
+                    pointToLayer: (feature, latlng) => {
+                        let color = config.color || "#e11d48";
+                        // Si c'est donnes.geojson, on garde le rouge pour les points
+                        if (config.id === 'donnes') color = "#e11d48"; 
+                        
+                        return L.circleMarker(latlng, {
+                            radius: 8,
+                            fillColor: color,
+                            color: "#fff",
+                            weight: 1,
+                            fillOpacity: 0.9
+                        });
+                    },
+                    onEachFeature: onEachFeature
+                });
 
-                // 2. Chargement de idee.geojson
-                const responseIdees = await fetch('idee.geojson');
-                if (responseIdees.ok) {
-                    const dataIdees = await responseIdees.json();
-                    
-                    L.geoJSON(dataIdees, {
-                        pointToLayer: function(feature, latlng) {
-                            return L.circleMarker(latlng, styles.idee);
-                        },
-                        onEachFeature: function(feature, layer) {
-                            layer.bindPopup(createPopupContent(feature, "Idée d'amélioration"));
+                layers[config.id] = layer;
+                layer.addTo(map);
+                addLayerToUI(config);
+
+                // Zoom auto sur la première couche chargée
+                if (config.id === 'donnes') map.fitBounds(layer.getBounds());
+
+            } catch (e) { console.warn("Erreur chargement " + config.url); }
+        }
+
+        // --- INTERFACE LÉGENDE ---
+
+        function initUI() {
+            const container = document.getElementById('legend-container');
+            Object.keys(categories).forEach(key => {
+                const cat = categories[key];
+                const block = document.createElement('div');
+                block.className = 'category-block';
+                block.innerHTML = `
+                    <div class="category-header">
+                        <input type="checkbox" checked id="master-${key}">
+                        <div class="category-title-container" onclick="toggleCategory('${cat.contentId}')">
+                            <span class="category-title">${cat.title}</span>
+                            <small class="ml-2 opacity-50">▼</small>
+                        </div>
+                    </div>
+                    <div class="category-content" id="${cat.contentId}"></div>
+                `;
+                
+                // Logic Master Checkbox
+                block.querySelector(`#master-${key}`).onchange = (e) => {
+                    const checked = e.target.checked;
+                    block.querySelectorAll('.layer-item input').forEach(input => {
+                        if (input.checked !== checked) {
+                            input.checked = checked;
+                            input.dispatchEvent(new Event('change'));
                         }
-                    }).addTo(map);
-                }
+                    });
+                };
+                container.appendChild(block);
+            });
+        }
 
-                document.getElementById('status').innerText = "Données chargées";
-                setTimeout(() => document.getElementById('status').style.display = 'none', 3000);
+        function toggleCategory(id) {
+            document.getElementById(id).classList.toggle('collapsed');
+        }
 
-                // Ajuster la vue si des données sont présentes (optionnel)
-                // map.fitBounds(allLayers.getBounds());
+        function addLayerToUI(config) {
+            const container = document.getElementById(categories[config.category].contentId);
+            const div = document.createElement('div');
+            div.className = 'layer-item';
+            
+            // Couleur du symbole (on prend une couleur représentative)
+            let symbolColor = config.color || (config.id === 'donnes' ? '#e11d48' : '#333');
+            
+            div.innerHTML = `
+                <input type="checkbox" checked id="chk-${config.id}">
+                <label for="chk-${config.id}" class="flex items-center">
+                    <span class="symbol" style="background:${symbolColor}"></span>
+                    ${config.name}
+                </label>
+            `;
+            
+            div.querySelector('input').onchange = (e) => {
+                if (e.target.checked) map.addLayer(layers[config.id]);
+                else map.removeLayer(layers[config.id]);
+            };
+            container.appendChild(div);
 
-            } catch (error) {
-                console.error("Erreur lors du chargement des GeoJSON:", error);
-                document.getElementById('status').innerText = "Erreur de chargement";
-                document.getElementById('status').classList.replace('bg-blue-700', 'bg-red-600');
+            // Si donnes.geojson, on ajoute des précisions sur les types de géométrie
+            if (config.id === 'donnes') {
+                const subLegend = document.createElement('div');
+                subLegend.className = "pl-8 py-1 text-[10px] text-gray-500 italic flex flex-col gap-1";
+                subLegend.innerHTML = `
+                    <span><i class="inline-block w-2 h-2 rounded-full bg-[#e11d48] mr-1"></i> Événements ponctuels</span>
+                    <span><i class="inline-block w-2 h-0.5 bg-[#f59e0b] mr-1"></i> Passages piétons</span>
+                    <span><i class="inline-block w-2 h-2 bg-[#3b82f6] opacity-40 mr-1"></i> Revêtement trottoirs</span>
+                `;
+                container.appendChild(subLegend);
             }
         }
 
-        // --- LÉGENDE ---
-        const legend = L.control({position: 'bottomright'});
-        legend.onAdd = function (map) {
-            const div = L.DomUtil.create('div', 'legend');
-            div.innerHTML += '<h4 class="font-bold mb-2">Légende</h4>';
-            div.innerHTML += `<i style="background: ${styles.evenement.fillColor}"></i> Événement ponctuel<br>`;
-            div.innerHTML += `<i style="background: ${styles.passagePieton.color}; height: 4px; margin-top: 7px;"></i> Passage problématique<br>`;
-            div.innerHTML += `<i style="background: ${styles.revetement.fillColor}; opacity: 0.5;"></i> Revêtement trottoir<br>`;
-            div.innerHTML += `<i style="background: ${styles.idee.fillColor}"></i> Idée d'amélioration<br>`;
-            return div;
-        };
-        legend.addTo(map);
+        // --- MENU CONTEXTUEL ---
+        let lastCoords = null;
+        map.on('contextmenu', (e) => {
+            lastCoords = e.latlng;
+            const menu = document.getElementById('context-menu');
+            menu.style.display = 'block';
+            menu.style.left = e.containerPoint.x + 'px';
+            menu.style.top = e.containerPoint.y + 'px';
+        });
+        document.addEventListener('click', () => document.getElementById('context-menu').style.display = 'none');
+        
+        function openGoogleMaps() {
+            if (lastCoords) {
+                window.open(`https://www.google.com/maps/search/?api=1&query=${lastCoords.lat},${lastCoords.lng}`, '_blank');
+            }
+        }
 
         // Démarrage
-        window.onload = loadGeoJSON;
-
+        window.onload = () => {
+            initUI();
+            loadLayer(configDonnes);
+            loadLayer(configIdees);
+        };
     </script>
 </body>
 </html>
