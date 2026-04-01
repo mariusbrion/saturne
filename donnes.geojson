@@ -389,7 +389,8 @@
           ]
         ],
         "type": "Polygon"
-      }
+      },
+      "id": 11
     },
     {
       "type": "Feature",
@@ -729,6 +730,97 @@
           ]
         ],
         "type": "Polygon"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "description": "stationnement"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.6412308420261184,
+          44.90977711152749
+        ],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "description": "stationnement"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.6437788013392094,
+          44.909431339212404
+        ],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "description": "stationnement"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.6439515531102131,
+          44.9092144511383
+        ],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "description": "stationnement"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.6427915855435913,
+          44.90993867456115
+        ],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "description": "aveugles"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.6416610781176075,
+          44.90960736048626
+        ],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "description": "conflit entrée du PP sur allée"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.6411015007135745,
+          44.909820366114474
+        ],
+        "type": "Point"
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "description": "poubelle"
+      },
+      "geometry": {
+        "coordinates": [
+          -0.6416800030450247,
+          44.90971982668364
+        ],
+        "type": "Point"
       }
     }
   ]
